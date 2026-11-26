@@ -12,7 +12,7 @@ import (
 type Config struct {
 	Env            string // "development" | "production"
 	Addr           string
-	DatabasePath   string
+	DatabaseURL    string
 	JWTSecret      []byte
 	AccessTokenTTL time.Duration
 	AIServiceURL   string
@@ -25,7 +25,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		Env:            getenv("BRANDSHAKE_ENV", "development"),
 		Addr:           getenv("BRANDSHAKE_ADDR", ":8080"),
-		DatabasePath:   getenv("BRANDSHAKE_DB_PATH", "../data/brandshake.db"),
+		DatabaseURL:    getenv("BRANDSHAKE_DATABASE_URL", "postgres://brandshake:brandshake@localhost:5432/brandshake?sslmode=disable"),
 		AIServiceURL:   getenv("BRANDSHAKE_AI_URL", "http://localhost:8090"),
 		AllowedOrigins: splitCSV(getenv("BRANDSHAKE_ALLOWED_ORIGINS", "http://localhost:5173")),
 	}

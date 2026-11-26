@@ -17,6 +17,21 @@ jobs:
     name: Go API
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: go } }
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: brandshake
+          POSTGRES_PASSWORD: brandshake
+          POSTGRES_DB: brandshake_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U brandshake"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BRANDSHAKE_TEST_DATABASE_URL: postgres://brandshake:brandshake@localhost:5432/brandshake_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

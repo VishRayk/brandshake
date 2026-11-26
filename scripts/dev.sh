@@ -6,6 +6,11 @@ export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/go/bin:$PATH"
 
 [[ -f .env ]] && set -a && source .env && set +a
 
+if ! pg_isready -h localhost -p 5432 -q; then
+  echo "PostgreSQL isn't running. Start it with: make db-start" >&2
+  exit 1
+fi
+
 pids=()
 cleanup() { kill "${pids[@]}" 2>/dev/null || true; wait 2>/dev/null || true; }
 trap cleanup EXIT INT TERM

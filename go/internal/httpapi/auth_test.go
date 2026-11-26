@@ -2,30 +2,21 @@ package httpapi_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/httpapi"
-	"github.com/VishRayk/brandshake/internal/store"
+	"github.com/VishRayk/brandshake/internal/testdb"
 	"github.com/VishRayk/brandshake/internal/user"
 )
 
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db.Close() })
-	if err := store.Migrate(context.Background(), db); err != nil {
-		t.Fatal(err)
-	}
+	db := testdb.New(t)
 	srv := httptest.NewServer(httpapi.NewHandler(httpapi.Deps{
 		DB:     db,
 		Users:  user.NewRepo(db),

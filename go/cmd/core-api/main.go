@@ -40,7 +40,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db, err := store.Open(cfg.DatabasePath)
+	db, err := store.Open(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}

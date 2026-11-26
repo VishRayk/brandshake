@@ -1,58 +1,90 @@
-// Package store owns the database connection and schema migrations.
+// Package store owns the PostgreSQL connection pool and schema migrations.
 package store
 
 import (
 	"context"
-	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite" // pure-Go SQLite driver
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// Open opens (creating if needed) the SQLite database at path with
-// foreign keys, WAL mode and a busy timeout enabled.
-func Open(path string) (*sql.DB, error) {
-	if path != ":memory:" {
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			return nil, fmt.Errorf("create db dir: %w", err)
-		}
-	}
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_txlock=immediate", path)
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, err
-	}
-	// SQLite allows one writer at a time; a single connection avoids
-	// SQLITE_BUSY under concurrent writes and keeps :memory: DBs shared.
-	db.SetMaxOpenConns(1)
+// migrationLockID is the advisory lock key that serialises migrations, so
+// several API instances starting at once never migrate concurrently.
+const migrationLockID int64 = 7_270_113_001
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("ping db: %w", err)
+// Open creates a connection pool for databaseURL and verifies connectivity.
+func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse database url: %w", err)
 	}
-	return db, nil
+	return OpenConfig(ctx, cfg)
 }
 
-// Migrate applies all embedded migrations that have not run yet, each in
-// its own transaction, in filename order.
-func Migrate(ctx context.Context, db *sql.DB) error {
-	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
-		version    TEXT PRIMARY KEY,
-		applied_at TEXT NOT NULL
+// OpenConfig is Open with a pre-built pool config.
+func OpenConfig(ctx context.Context, cfg *pgxpool.Config) (*pgxpool.Pool, error) {
+	if cfg.ConnConfig.ConnectTimeout == 0 {
+		cfg.ConnConfig.ConnectTimeout = 5 * time.Second
+	}
+	cfg.MaxConnIdleTime = 5 * time.Minute
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create pool: %w", err)
+	}
+	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := pool.Ping(pingCtx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("connect to postgres: %w", err)
+	}
+	return pool, nil
+}
+
+// Migrate applies every embedded migration that has not run yet, in
+// filename order, each in its own transaction.
+func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, migrationLockID); err != nil {
+		return fmt.Errorf("acquire migration lock: %w", err)
+	}
+	defer conn.Exec(context.WithoutCancel(ctx), `SELECT pg_advisory_unlock($1)`, migrationLockID) //nolint:errcheck
+
+	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version    text PRIMARY KEY,
+		applied_at timestamptz NOT NULL DEFAULT now()
 	)`); err != nil {
 		return fmt.Errorf("create schema_migrations: %w", err)
+	}
+
+	applied := map[string]bool{}
+	rows, err := conn.Query(ctx, `SELECT version FROM schema_migrations`)
+	if err != nil {
+		return err
+	}
+	versions, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	for _, v := range versions {
+		applied[v] = true
 	}
 
 	files, err := fs.Glob(migrationsFS, "migrations/*.sql")
@@ -62,47 +94,33 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 	sort.Strings(files)
 
 	for _, f := range files {
-		version := strings.TrimSuffix(filepath.Base(f), ".sql")
-
-		var exists int
-		if err := db.QueryRowContext(ctx,
-			`SELECT COUNT(1) FROM schema_migrations WHERE version = ?`, version).Scan(&exists); err != nil {
-			return err
-		}
-		if exists > 0 {
+		version := strings.TrimSuffix(path.Base(f), ".sql")
+		if applied[version] {
 			continue
 		}
-
 		body, err := migrationsFS.ReadFile(f)
 		if err != nil {
 			return err
 		}
-		if err := applyMigration(ctx, db, version, string(body)); err != nil {
+		if err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, string(body)); err != nil {
+				return err
+			}
+			_, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version)
+			return err
+		}); err != nil {
 			return fmt.Errorf("migration %s: %w", version, err)
 		}
 	}
 	return nil
 }
 
-func applyMigration(ctx context.Context, db *sql.DB, version, body string) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
+// IsUniqueViolation reports whether err is a unique-constraint violation,
+// optionally on a specific constraint.
+func IsUniqueViolation(err error, constraint ...string) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return false
 	}
-	defer tx.Rollback() //nolint:errcheck // no-op after commit
-
-	if _, err := tx.ExecContext(ctx, body); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)`,
-		version, time.Now().UTC().Format(time.RFC3339)); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-// IsUniqueViolation reports whether err is a UNIQUE constraint failure.
-func IsUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+	return len(constraint) == 0 || pgErr.ConstraintName == constraint[0]
 }

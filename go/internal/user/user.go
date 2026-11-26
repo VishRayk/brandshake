@@ -3,12 +3,12 @@ package user
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/VishRayk/brandshake/internal/store"
 )
@@ -36,57 +36,41 @@ var (
 	ErrEmailTaken = errors.New("email already registered")
 )
 
-type Repo struct{ db *sql.DB }
+type Repo struct{ db *pgxpool.Pool }
 
-func NewRepo(db *sql.DB) *Repo { return &Repo{db: db} }
+func NewRepo(db *pgxpool.Pool) *Repo { return &Repo{db: db} }
 
 // NormalizeEmail lowercases and trims an email for storage and lookup.
 func NormalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
 
+const columns = `id::text, email, password_hash, role, display_name, created_at`
+
 func (r *Repo) Create(ctx context.Context, email, passwordHash string, role Role, displayName string) (User, error) {
-	u := User{
-		ID:           uuid.NewString(),
-		Email:        NormalizeEmail(email),
-		PasswordHash: passwordHash,
-		Role:         role,
-		DisplayName:  strings.TrimSpace(displayName),
-		CreatedAt:    time.Now().UTC().Truncate(time.Second),
-	}
-	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO users (id, email, password_hash, role, display_name, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Email, u.PasswordHash, u.Role, u.DisplayName, u.CreatedAt.Format(time.RFC3339))
-	if store.IsUniqueViolation(err) {
+	u, err := scan(r.db.QueryRow(ctx,
+		`INSERT INTO users (email, password_hash, role, display_name)
+		 VALUES ($1, $2, $3, $4)
+		 RETURNING `+columns,
+		NormalizeEmail(email), passwordHash, role, strings.TrimSpace(displayName)))
+	if store.IsUniqueViolation(err, "users_email_key") {
 		return User{}, ErrEmailTaken
 	}
-	if err != nil {
-		return User{}, err
-	}
-	return u, nil
+	return u, err
 }
 
 func (r *Repo) ByEmail(ctx context.Context, email string) (User, error) {
-	return r.scanOne(ctx, `WHERE email = ?`, NormalizeEmail(email))
+	return scan(r.db.QueryRow(ctx, `SELECT `+columns+` FROM users WHERE email = $1`, NormalizeEmail(email)))
 }
 
 func (r *Repo) ByID(ctx context.Context, id string) (User, error) {
-	return r.scanOne(ctx, `WHERE id = ?`, id)
+	// Compare as text so a malformed id is simply "not found" rather than a cast error.
+	return scan(r.db.QueryRow(ctx, `SELECT `+columns+` FROM users WHERE id::text = $1`, id))
 }
 
-func (r *Repo) scanOne(ctx context.Context, where string, arg any) (User, error) {
-	var (
-		u       User
-		created string
-	)
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id, email, password_hash, role, display_name, created_at FROM users `+where, arg).
-		Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.DisplayName, &created)
-	if errors.Is(err, sql.ErrNoRows) {
+func scan(row pgx.Row) (User, error) {
+	var u User
+	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.DisplayName, &u.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
-	if err != nil {
-		return User{}, err
-	}
-	u.CreatedAt, err = time.Parse(time.RFC3339, created)
 	return u, err
 }

@@ -24,7 +24,7 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 
 ```
 ┌──────────────────────┐   REST/JSON   ┌───────────────────────┐
-│  Web app             │ ────────────▶ │  Core API (Go)        │──▶ SQLite
+│  Web app             │ ────────────▶ │  Core API (Go)        │──▶ PostgreSQL
 │  React · Vite · TS   │               │  auth · accounts      │
 └──────────────────────┘               └───────────────────────┘
 
@@ -36,7 +36,7 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 
 | Service | Path | Stack |
 |---|---|---|
-| **Core API** | [`go/`](go) | Go standard library HTTP server, pure-Go SQLite, embedded migrations, bcrypt, JWT |
+| **Core API** | [`go/`](go) | Go standard library HTTP server, PostgreSQL via pgx, embedded migrations, bcrypt, JWT |
 | **AI service** | [`python/ai/`](python/ai) | FastAPI, Pydantic, `google-genai`, uv |
 | **Web app** | [`web/`](web) | React 19, Vite, TypeScript, Tailwind CSS v4, TanStack Router & Query, React Hook Form, Zod |
 
@@ -47,7 +47,8 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 - Login runs in the same time whether or not the account exists, so emails can't be discovered
 - Strict JSON decoding (size limit, unknown fields rejected) and field-level validation errors in one error envelope
 - Request IDs, structured logging, panic recovery, CORS, security headers, timeouts and graceful shutdown
-- Transactional, embedded schema migrations
+- PostgreSQL with transactional, embedded migrations guarded by an advisory lock, so concurrent deploys never race
+- Integration tests run against real PostgreSQL, each in its own throwaway schema
 
 **AI service (Python)**
 - **One LLM gateway** for every model call: token-bucket rate limiting, result caching, retries with exponential backoff and jitter, and Pydantic validation of every response
@@ -63,7 +64,7 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 
 ## Getting started
 
-Requirements: Go 1.27+, Python 3.12+ with [uv](https://docs.astral.sh/uv/), Node.js 26+.
+Requirements: Go 1.27+, PostgreSQL 16+, Python 3.12+ with [uv](https://docs.astral.sh/uv/), Node.js 26+.
 
 ```bash
 git clone https://github.com/VishRayk/brandshake.git
@@ -72,6 +73,16 @@ cp .env.example .env
 make setup
 make dev
 ```
+
+Create the local databases once (PostgreSQL 16 on Ubuntu or WSL):
+
+```bash
+sudo -u postgres psql -c "CREATE ROLE brandshake WITH LOGIN CREATEDB PASSWORD 'brandshake';"
+sudo -u postgres createdb -O brandshake brandshake
+sudo -u postgres createdb -O brandshake brandshake_test
+```
+
+`make db-start` and `make db-stop` start and stop PostgreSQL.
 
 | | URL |
 |---|---|
