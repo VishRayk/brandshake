@@ -7,9 +7,13 @@ import {
 } from '@tanstack/react-router'
 import { z } from 'zod'
 import type { AuthState } from '@/lib/auth'
+import { AppShell } from '@/components/shell/app-shell'
 import { DashboardPage } from '@/routes/dashboard'
 import { LandingPage } from '@/routes/landing'
 import { LoginPage } from '@/routes/login'
+import { ProfileEditPage } from '@/routes/profile-edit'
+import { PublicProfilePage } from '@/routes/public-profile'
+import { SettingsPage } from '@/routes/settings'
 import { SignupPage } from '@/routes/signup'
 
 interface RouterContext {
@@ -49,16 +53,50 @@ const signupRoute = createRoute({
   },
 })
 
-const dashboardRoute = createRoute({
+// Signed-in area: every child renders inside the app shell.
+const appRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/dashboard',
+  id: 'app',
   beforeLoad: ({ context }) => {
     if (!context.auth.user) throw redirect({ to: '/login' })
   },
+  component: AppShell,
+})
+
+const dashboardRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/dashboard',
   component: DashboardPage,
 })
 
-const routeTree = rootRoute.addChildren([landingRoute, loginRoute, signupRoute, dashboardRoute])
+const profileRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/profile',
+  component: ProfileEditPage,
+})
+
+const settingsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/settings',
+  component: SettingsPage,
+})
+
+const publicProfileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/@{$handle}',
+  component: function PublicProfile() {
+    const { handle } = publicProfileRoute.useParams()
+    return <PublicProfilePage handle={handle.toLowerCase()} />
+  },
+})
+
+const routeTree = rootRoute.addChildren([
+  landingRoute,
+  loginRoute,
+  signupRoute,
+  appRoute.addChildren([dashboardRoute, profileRoute, settingsRoute]),
+  publicProfileRoute,
+])
 
 export const router = createRouter({
   routeTree,

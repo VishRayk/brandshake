@@ -61,7 +61,10 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 
 **Web app**
 - A design system built on tokens, with light and dark themes, accessible form fields and tabular money formatting
-- Role-aware onboarding and an auth-guarded dashboard
+- Responsive app shell: sidebar on desktop, bottom tabs on mobile
+- Profile editor with live handle availability, niche and language pickers, and editable social accounts, rate card (₹, stored in paise) and work samples
+- Public profile pages at `/@handle`: a shareable media kit for creators and a brand page for brands
+- Home with a profile-setup checklist driven by real data; settings with data export and account deletion
 - Forms validated on the client with Zod, with server errors mapped back onto each field
 
 ## Getting started

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { AuthProvider, useAuth } from '@/lib/auth'
 import { router } from '@/router'
 
@@ -13,9 +13,14 @@ const queryClient = new QueryClient({
 
 function RoutedApp() {
   const auth = useAuth()
+  const userId = auth.user?.id
+  const prevUserId = useRef(userId)
   useEffect(() => {
+    // Never show one account's cached data to another.
+    if (prevUserId.current !== userId) queryClient.clear()
+    prevUserId.current = userId
     router.invalidate()
-  }, [auth.user])
+  }, [userId])
   return <RouterProvider router={router} context={{ auth }} />
 }
 
