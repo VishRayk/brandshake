@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { Logo } from '@/components/brandshake/logo'
-import { PactPreview } from '@/components/brandshake/pact-preview'
+import { DealPreview } from '@/components/brandshake/deal-preview'
 
 export function AuthLayout({
   title,
@@ -28,7 +28,7 @@ export function AuthLayout({
         </div>
       </div>
       <div className="hidden items-center justify-center border-l border-line bg-surface p-12 lg:flex">
-        <PactPreview />
+        <DealPreview />
       </div>
     </div>
   )

@@ -4,8 +4,8 @@
 
 <h1 align="center">Brandshake</h1>
 
-<p align="center"><strong>Creator deals you can trust.</strong><br/>
-Verified creator profiles, clearly agreed terms, escrowed payments and automatic delivery checks, all in one place.</p>
+<p align="center"><strong>Where creators and brands do business.</strong><br/>
+The workspace and network for creator–brand partnerships in India.</p>
 
 <p align="center">
   <a href="https://github.com/VishRayk/brandshake/actions/workflows/ci.yml"><img src="https://github.com/VishRayk/brandshake/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
@@ -18,7 +18,7 @@ Verified creator profiles, clearly agreed terms, escrowed payments and automatic
 
 ## Why Brandshake
 
-Sponsorships between brands and creators still run on DMs and trust. Creators chase late invoices; brands pay up front and hope the post goes live as agreed. Brandshake makes every collaboration a **pact**: terms written down and agreed by both sides, money held before work starts, and delivery checked against the brief before payment is released.
+Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and spreadsheets. Creators chase late payments and rebuild invoices by hand; brands juggle creator lists and struggle to find the right people. Brandshake gives both sides one place to **run** their partnerships (deals, deliverables, invoices) and one place to **find** each other.
 
 ## Architecture
 
@@ -52,7 +52,7 @@ Sponsorships between brands and creators still run on DMs and trust. Creators ch
 **AI service (Python)**
 - **One LLM gateway** for every model call: token-bucket rate limiting, result caching, retries with exponential backoff and jitter, and Pydantic validation of every response
 - **Provider-agnostic**: Gemini in production, plus a deterministic offline provider for development and tests
-- **Terms extractor**: turns a brand–creator negotiation into structured pact terms (deliverables, price, revisions, usage rights, exclusivity) and a plain-language summary
+- **Terms extractor**: turns a brand–creator negotiation into structured deal terms (deliverables, price, revisions, usage rights, exclusivity) and a plain-language summary
 - **Risk flags come from code, not the model**: perpetual usage rights, missing deadlines and unpriced deals are flagged by deterministic rules
 - **Prompt-injection safe**: chat content is escaped and passed to the model only as untrusted data
 

@@ -1,25 +1,25 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { Logo } from '@/components/brandshake/logo'
-import { PactPreview } from '@/components/brandshake/pact-preview'
+import { DealPreview } from '@/components/brandshake/deal-preview'
 import { buttonVariants } from '@/components/ui/button'
 
 const steps = [
   {
-    title: 'Verified profiles',
-    body: 'Creators connect their accounts. Stats come straight from the platform, not from screenshots.',
+    title: 'A profile that works for you',
+    body: 'One link with your niche, audience, rates and best work. Brands see everything they need at a glance.',
   },
   {
-    title: 'Clear terms',
-    body: 'Deliverables, deadlines, usage rights and price are written down and agreed by both sides.',
+    title: 'Every deal in one place',
+    body: 'Track each collaboration from first message to payment, even with brands that are not on Brandshake yet.',
   },
   {
-    title: 'Escrowed payment',
-    body: 'Brands fund the deal up front. Creators start work knowing the money is there.',
+    title: 'Invoices that get paid',
+    body: 'GST-ready invoices with a UPI QR code, shared as a link. Friendly reminders go out when a payment is late.',
   },
   {
-    title: 'Checked delivery',
-    body: 'Each post is checked against the brief: live, disclosed, with the right link and code. Then payment releases.',
+    title: 'Find the right partners',
+    body: 'Brands discover creators by niche, city and audience. Creators find brands that sponsor work like theirs.',
   },
 ]
 
@@ -46,14 +46,14 @@ export function LandingPage() {
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 lg:grid-cols-[1fr_auto] lg:py-28">
           <div className="max-w-xl">
             <p className="text-[13px] font-medium text-accent">
-              For creators and the brands they work with
+              For India's creators and the brands they work with
             </p>
             <h1 className="mt-3 text-4xl leading-[44px] font-semibold text-fg">
-              Creator deals, without the chasing.
+              Where creators and brands do business.
             </h1>
             <p className="mt-4 text-base leading-6 text-muted">
-              Brandshake turns a sponsorship from a DM thread into a pact: agreed terms, money held in
-              escrow, and delivery checked automatically before anyone gets paid.
+              Brandshake is the workspace and network for creator–brand partnerships. Manage every
+              deal, send invoices that get paid, and meet your next collaborator.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -73,12 +73,12 @@ export function LandingPage() {
               </Link>
             </div>
           </div>
-          <PactPreview />
+          <DealPreview />
         </section>
 
         <section className="border-t border-line bg-surface">
           <div className="mx-auto max-w-6xl px-6 py-16">
-            <h2 className="text-lg font-semibold text-fg">How a pact works</h2>
+            <h2 className="text-lg font-semibold text-fg">How Brandshake works</h2>
             <ol className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
               {steps.map((s, i) => (
                 <li key={s.title}>
@@ -95,7 +95,7 @@ export function LandingPage() {
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 text-xs text-subtle">
           <span>© {YEAR} Brandshake</span>
-          <span>Payments are held by a licensed payment provider.</span>
+          <span>Built for India's creator economy</span>
         </div>
       </footer>
     </div>

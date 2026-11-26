@@ -63,7 +63,7 @@ export function SignupPage({ initialRole }: { initialRole?: Role }) {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Free for creators. Brands pay a fee only on funded pacts."
+      subtitle="Free for creators and brands."
       footer={
         <>
           Already have an account?{' '}

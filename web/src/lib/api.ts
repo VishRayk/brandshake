@@ -58,7 +58,11 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   try {
     res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   } catch {
-    throw new ApiError(0, 'network', 'Could not reach Brandshake. Check your connection and try again.')
+    throw new ApiError(
+      0,
+      'network',
+      'Could not reach Brandshake. Check your connection and try again.',
+    )
   }
   if (!res.ok) throw await parseError(res)
   return (await res.json()) as T

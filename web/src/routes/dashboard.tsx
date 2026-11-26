@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
-import { FileSignature, LogOut } from 'lucide-react'
+import { Handshake, LogOut } from 'lucide-react'
 import { EmptyState } from '@/components/brandshake/empty-state'
 import { Logo } from '@/components/brandshake/logo'
 import { MoneyAmount } from '@/components/brandshake/money'
@@ -20,17 +20,17 @@ function Stats({ user }: { user: User }) {
   if (user.role === 'creator') {
     return (
       <>
-        <StatTile label="In escrow" value={zero} hint="Held for your active pacts" />
-        <StatTile label="Paid out" value={zero} hint="All time" />
-        <StatTile label="Active pacts" value="0" />
+        <StatTile label="Unpaid invoices" value={zero} hint="Sent and awaiting payment" />
+        <StatTile label="Paid this month" value={zero} />
+        <StatTile label="Active deals" value="0" />
       </>
     )
   }
   return (
     <>
-      <StatTile label="Committed spend" value={zero} hint="Funded, not yet released" />
-      <StatTile label="Active pacts" value="0" />
-      <StatTile label="Awaiting your review" value="0" />
+      <StatTile label="Active deals" value="0" />
+      <StatTile label="Invoices to pay" value={zero} hint="Received from creators" />
+      <StatTile label="Creators in your roster" value="0" />
     </>
   )
 }
@@ -86,15 +86,15 @@ export function DashboardPage() {
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Pacts</CardTitle>
+            <CardTitle>Deals</CardTitle>
           </CardHeader>
           <EmptyState
-            icon={FileSignature}
-            title="No pacts yet"
+            icon={Handshake}
+            title="No deals yet"
             description={
               user.role === 'creator'
-                ? 'When a brand invites you and you agree on terms, the pact shows up here with its status and payout.'
-                : 'Pacts you agree with creators show up here, with delivery checks and payment status.'
+                ? 'Deals you make with brands show up here, from first message to final payment.'
+                : 'Deals you make with creators show up here, with deliverables and invoice status.'
             }
           />
         </Card>
