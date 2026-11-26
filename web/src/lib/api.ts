@@ -75,3 +75,88 @@ export const api = {
     request<Session>('/v1/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   me: () => request<{ user: User }>('/v1/me'),
 }
+
+export interface Profile {
+  handle: string
+  headline: string
+  bio: string
+  city: string
+  state: string
+  website: string
+  niches: string[]
+  languages: string[]
+  open_to_collabs: boolean
+  industry: string
+  updated_at: string
+}
+
+export interface SocialAccount {
+  platform: string
+  handle: string
+  url: string
+  followers: number
+  verified?: boolean
+}
+
+export interface Rate {
+  deliverable: string
+  price_minor: number
+  note: string
+}
+
+export interface Sample {
+  title: string
+  url: string
+  platform?: string
+  brand_name: string
+}
+
+export interface MyProfile {
+  profile: Profile | null
+  socials: SocialAccount[]
+  rates: Rate[]
+  samples: Sample[]
+}
+
+export interface PublicProfile extends Profile {
+  role: Role
+  display_name: string
+  member_since: string
+  socials: SocialAccount[]
+  rates: Rate[]
+  samples: Sample[]
+}
+
+export type ProfileInput = Omit<Profile, 'updated_at'>
+
+const put = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: 'PUT', body: JSON.stringify(body) })
+
+export const profileApi = {
+  mine: () => request<MyProfile>('/v1/me/profile'),
+  save: (p: ProfileInput) => put<{ profile: Profile }>('/v1/me/profile', p),
+  saveSocials: (socials: SocialAccount[]) =>
+    put<{ socials: SocialAccount[] }>('/v1/me/socials', { socials }),
+  saveRates: (rates: Rate[]) => put<{ rates: Rate[] }>('/v1/me/rates', { rates }),
+  saveSamples: (samples: Sample[]) => put<{ samples: Sample[] }>('/v1/me/samples', { samples }),
+  checkHandle: (handle: string) =>
+    request<{ handle: string; available: boolean; reason?: string }>(
+      `/v1/handles/${encodeURIComponent(handle)}`,
+    ),
+  public: (handle: string) =>
+    request<{ profile: PublicProfile }>(`/v1/profiles/${encodeURIComponent(handle)}`),
+}
+
+export const accountApi = {
+  export: () => request<Record<string, unknown>>('/v1/me/export'),
+  delete: async (password: string) => {
+    const headers = new Headers({ 'Content-Type': 'application/json' })
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+    const res = await fetch(`${BASE_URL}/v1/me`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({ password }),
+    })
+    if (!res.ok) throw await parseError(res)
+  },
+}
