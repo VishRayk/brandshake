@@ -1,0 +1,40 @@
+# Internal planning docs (kept local)
+/docs/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Go
+/go/bin/
+*.test
+*.out
+coverage.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+storybook-static/
+
+# Data
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
