@@ -9,12 +9,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/VishRayk/brandshake/internal/auth"
+	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/user"
 )
 
 type Deps struct {
 	DB             *pgxpool.Pool
 	Users          *user.Repo
+	Profiles       *profile.Repo
 	Tokens         *auth.Tokens
 	AllowedOrigins []string
 }
@@ -33,7 +35,18 @@ func NewHandler(d Deps) http.Handler {
 
 	mux.HandleFunc("POST /v1/auth/signup", a.signup)
 	mux.HandleFunc("POST /v1/auth/login", a.login)
-	mux.Handle("GET /v1/me", requireAuth(http.HandlerFunc(a.me)))
+	authed := func(pattern string, h http.HandlerFunc) { mux.Handle(pattern, requireAuth(h)) }
+	authed("GET /v1/me", a.me)
+	authed("DELETE /v1/me", a.deleteAccount)
+	authed("GET /v1/me/export", a.exportMyData)
+	authed("GET /v1/me/profile", a.getMyProfile)
+	authed("PUT /v1/me/profile", a.putMyProfile)
+	authed("PUT /v1/me/socials", a.putSocials)
+	authed("PUT /v1/me/rates", a.putRates)
+	authed("PUT /v1/me/samples", a.putSamples)
+	authed("GET /v1/handles/{handle}", a.checkHandle)
+
+	mux.HandleFunc("GET /v1/profiles/{handle}", a.publicProfile)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Route not found.")

@@ -66,6 +66,15 @@ func (r *Repo) ByID(ctx context.Context, id string) (User, error) {
 	return scan(r.db.QueryRow(ctx, `SELECT `+columns+` FROM users WHERE id::text = $1`, id))
 }
 
+// Delete removes the user; profiles and related rows cascade.
+func (r *Repo) Delete(ctx context.Context, id string) error {
+	tag, err := r.db.Exec(ctx, `DELETE FROM users WHERE id::text = $1`, id)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
 func scan(row pgx.Row) (User, error) {
 	var u User
 	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.DisplayName, &u.CreatedAt)

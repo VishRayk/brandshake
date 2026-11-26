@@ -43,6 +43,8 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 ## Highlights
 
 **Core API (Go)**
+- Public creator and brand profiles: unique handles with reserved words blocked, niches, languages, social accounts (links checked against each platform's domain), rate cards in paise, and work samples
+- Account data export and permanent deletion, in line with India's DPDP Act
 - Email sign-up and sign-in for creators and brands with bcrypt hashing and HS256 access tokens
 - Login runs in the same time whether or not the account exists, so emails can't be discovered
 - Strict JSON decoding (size limit, unknown fields rejected) and field-level validation errors in one error envelope
@@ -95,10 +97,21 @@ The AI service runs offline by default. To use Gemini, set `BRANDSHAKE_AI_PROVID
 ## API
 
 ```http
-POST /v1/auth/signup     { email, password, role: "creator" | "brand", display_name }
-POST /v1/auth/login      { email, password }
-GET  /v1/me              Authorization: Bearer <token>
-GET  /healthz · /readyz
+POST   /v1/auth/signup        { email, password, role: "creator" | "brand", display_name }
+POST   /v1/auth/login         { email, password }
+GET    /v1/me                 Authorization: Bearer <token>
+DELETE /v1/me                 { password }         delete account and all data
+GET    /v1/me/export          download all your data as JSON
+
+GET    /v1/me/profile         profile, socials, rate card, work samples
+PUT    /v1/me/profile         { handle, headline, bio, city, state, website, niches, languages, open_to_collabs, industry }
+PUT    /v1/me/socials         { socials: [{ platform, handle, url, followers }] }
+PUT    /v1/me/rates           { rates: [{ deliverable, price_minor, note }] }          creators
+PUT    /v1/me/samples         { samples: [{ title, url, brand_name }] }               creators
+GET    /v1/handles/{handle}   is a handle available?
+GET    /v1/profiles/{handle}  public profile (no auth)
+
+GET    /healthz · /readyz
 ```
 
 AI service:

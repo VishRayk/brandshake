@@ -14,6 +14,7 @@ import (
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/config"
 	"github.com/VishRayk/brandshake/internal/httpapi"
+	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/store"
 	"github.com/VishRayk/brandshake/internal/user"
 )
@@ -55,6 +56,7 @@ func run() error {
 		Handler: httpapi.NewHandler(httpapi.Deps{
 			DB:             db,
 			Users:          user.NewRepo(db),
+			Profiles:       profile.NewRepo(db),
 			Tokens:         auth.NewTokens(cfg.JWTSecret, cfg.AccessTokenTTL),
 			AllowedOrigins: cfg.AllowedOrigins,
 		}),

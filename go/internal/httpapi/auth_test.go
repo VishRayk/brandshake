@@ -10,6 +10,7 @@ import (
 
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/httpapi"
+	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/testdb"
 	"github.com/VishRayk/brandshake/internal/user"
 )
@@ -18,9 +19,10 @@ func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	db := testdb.New(t)
 	srv := httptest.NewServer(httpapi.NewHandler(httpapi.Deps{
-		DB:     db,
-		Users:  user.NewRepo(db),
-		Tokens: auth.NewTokens([]byte("test-secret-test-secret-test-secret"), time.Hour),
+		DB:       db,
+		Users:    user.NewRepo(db),
+		Profiles: profile.NewRepo(db),
+		Tokens:   auth.NewTokens([]byte("test-secret-test-secret-test-secret"), time.Hour),
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -59,6 +61,7 @@ func signupBody(email string) map[string]string {
 }
 
 func TestSignupLoginMe(t *testing.T) {
+	t.Parallel()
 	srv := newServer(t)
 
 	resp, body := do(t, srv, "POST", "/v1/auth/signup", "", signupBody("Arjun@Example.com"))
@@ -90,6 +93,7 @@ func TestSignupLoginMe(t *testing.T) {
 }
 
 func TestSignupDuplicateEmail(t *testing.T) {
+	t.Parallel()
 	srv := newServer(t)
 	do(t, srv, "POST", "/v1/auth/signup", "", signupBody("dup@example.com"))
 	resp, body := do(t, srv, "POST", "/v1/auth/signup", "", signupBody("DUP@example.com"))
@@ -99,6 +103,7 @@ func TestSignupDuplicateEmail(t *testing.T) {
 }
 
 func TestSignupValidation(t *testing.T) {
+	t.Parallel()
 	srv := newServer(t)
 	resp, body := do(t, srv, "POST", "/v1/auth/signup", "", map[string]string{
 		"email": "not-an-email", "password": "short", "role": "admin", "display_name": "",
@@ -115,6 +120,7 @@ func TestSignupValidation(t *testing.T) {
 }
 
 func TestLoginWrongPassword(t *testing.T) {
+	t.Parallel()
 	srv := newServer(t)
 	do(t, srv, "POST", "/v1/auth/signup", "", signupBody("a@example.com"))
 
@@ -129,6 +135,7 @@ func TestLoginWrongPassword(t *testing.T) {
 }
 
 func TestMeRequiresToken(t *testing.T) {
+	t.Parallel()
 	srv := newServer(t)
 	for _, tok := range []string{"", "garbage"} {
 		resp, _ := do(t, srv, "GET", "/v1/me", tok, nil)
@@ -139,6 +146,7 @@ func TestMeRequiresToken(t *testing.T) {
 }
 
 func TestRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
 	srv := newServer(t)
 	b := signupBody("x@example.com")
 	b["is_admin"] = "true"

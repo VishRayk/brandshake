@@ -115,6 +115,12 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
+// IsForeignKeyViolation reports whether err is a foreign-key violation.
+func IsForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23503"
+}
+
 // IsUniqueViolation reports whether err is a unique-constraint violation,
 // optionally on a specific constraint.
 func IsUniqueViolation(err error, constraint ...string) bool {
