@@ -30,4 +30,5 @@ BRANDSHAKE_AI_REQUESTS_PER_MINUTE=10   # keep at or below your quota
 
 - `GET /healthz`
 - `POST /v1/terms/extract`: negotiation messages in, structured pact terms, plain-language summary and risk flags out
+- `POST /v1/deals/draft`: a pasted email or chat in, a draft deal (counterparty, deliverables, proposed price, revisions, usage rights, open questions) and risk flags out
 - `GET /v1/metrics`: per-feature request, cache and error counters

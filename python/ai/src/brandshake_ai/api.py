@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from brandshake_ai.config import Settings, get_settings
+from brandshake_ai.features.deals import DraftRequest, DraftResult, draft_deal
 from brandshake_ai.features.terms import TermsResult, extract_terms
 from brandshake_ai.gateway import GatewayError, LLMGateway, LLMProvider
 from brandshake_ai.gateway.fake_responders import default_fake_provider
@@ -62,6 +63,17 @@ def create_app(gateway: LLMGateway | None = None) -> FastAPI:
             raise HTTPException(
                 status_code=503,
                 detail="Automatic term extraction is unavailable right now. Please fill in the terms manually.",
+            ) from e
+
+    @app.post("/v1/deals/draft", response_model=DraftResult)
+    async def deals_draft(body: DraftRequest, request: Request) -> DraftResult:
+        try:
+            return await draft_deal(request.app.state.gateway, body)
+        except GatewayError as e:
+            log.warning("deal draft failed", exc_info=e)
+            raise HTTPException(
+                status_code=503,
+                detail="Automatic deal drafting is unavailable right now. Please fill in the deal manually.",
             ) from e
 
     @app.get("/v1/metrics")
