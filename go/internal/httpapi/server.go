@@ -8,7 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/VishRayk/brandshake/internal/aiclient"
 	"github.com/VishRayk/brandshake/internal/auth"
+	"github.com/VishRayk/brandshake/internal/deal"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/user"
 )
@@ -17,6 +19,8 @@ type Deps struct {
 	DB             *pgxpool.Pool
 	Users          *user.Repo
 	Profiles       *profile.Repo
+	Deals          *deal.Repo
+	AI             *aiclient.Client // nil disables AI features
 	Tokens         *auth.Tokens
 	AllowedOrigins []string
 }
@@ -45,6 +49,17 @@ func NewHandler(d Deps) http.Handler {
 	authed("PUT /v1/me/rates", a.putRates)
 	authed("PUT /v1/me/samples", a.putSamples)
 	authed("GET /v1/handles/{handle}", a.checkHandle)
+
+	authed("GET /v1/deals", a.listDeals)
+	authed("POST /v1/deals", a.createDeal)
+	authed("GET /v1/deals/summary", a.dealSummary)
+	authed("POST /v1/deals/draft", a.draftDeal)
+	authed("GET /v1/deals/{id}", a.getDeal)
+	authed("PUT /v1/deals/{id}", a.updateDeal)
+	authed("DELETE /v1/deals/{id}", a.deleteDeal)
+	authed("PUT /v1/deals/{id}/status", a.setDealStatus)
+	authed("PUT /v1/deals/{id}/deliverables/{position}", a.setDeliverableDone)
+	authed("GET /v1/deals/{id}/events", a.dealEvents)
 
 	mux.HandleFunc("GET /v1/profiles/{handle}", a.publicProfile)
 

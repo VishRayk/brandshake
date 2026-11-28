@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/VishRayk/brandshake/internal/auth"
+	"github.com/VishRayk/brandshake/internal/deal"
 	"github.com/VishRayk/brandshake/internal/httpapi"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/testdb"
@@ -16,14 +17,24 @@ import (
 )
 
 func newServer(t *testing.T) *httptest.Server {
+	return newServerWith(t, nil)
+}
+
+// newServerWith lets a test adjust dependencies (e.g. plug in a fake AI service).
+func newServerWith(t *testing.T, configure func(*httpapi.Deps)) *httptest.Server {
 	t.Helper()
 	db := testdb.New(t)
-	srv := httptest.NewServer(httpapi.NewHandler(httpapi.Deps{
+	deps := httpapi.Deps{
 		DB:       db,
 		Users:    user.NewRepo(db),
 		Profiles: profile.NewRepo(db),
+		Deals:    deal.NewRepo(db),
 		Tokens:   auth.NewTokens([]byte("test-secret-test-secret-test-secret"), time.Hour),
-	}))
+	}
+	if configure != nil {
+		configure(&deps)
+	}
+	srv := httptest.NewServer(httpapi.NewHandler(deps))
 	t.Cleanup(srv.Close)
 	return srv
 }

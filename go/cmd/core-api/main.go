@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/VishRayk/brandshake/internal/aiclient"
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/config"
+	"github.com/VishRayk/brandshake/internal/deal"
 	"github.com/VishRayk/brandshake/internal/httpapi"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/store"
@@ -57,12 +59,14 @@ func run() error {
 			DB:             db,
 			Users:          user.NewRepo(db),
 			Profiles:       profile.NewRepo(db),
+			Deals:          deal.NewRepo(db),
+			AI:             aiclient.New(cfg.AIServiceURL, 45*time.Second),
 			Tokens:         auth.NewTokens(cfg.JWTSecret, cfg.AccessTokenTTL),
 			AllowedOrigins: cfg.AllowedOrigins,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      60 * time.Second, // above the AI client timeout (45s)
 		IdleTimeout:       60 * time.Second,
 	}
 

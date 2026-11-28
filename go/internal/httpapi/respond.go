@@ -39,6 +39,10 @@ func writeValidation(w http.ResponseWriter, fields map[string]string) {
 	}})
 }
 
+func logWarn(r *http.Request, msg string, err error) {
+	slog.WarnContext(r.Context(), msg, "err", err, "path", r.URL.Path)
+}
+
 func writeInternal(w http.ResponseWriter, r *http.Request, err error) {
 	slog.ErrorContext(r.Context(), "internal error", "err", err, "path", r.URL.Path)
 	writeError(w, http.StatusInternalServerError, "internal", "Something went wrong.")
