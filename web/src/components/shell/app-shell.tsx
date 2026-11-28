@@ -4,6 +4,7 @@ import {
   Handshake,
   House,
   LogOut,
+  ReceiptIndianRupee,
   Settings,
   UserRound,
   type LucideIcon,
@@ -15,14 +16,16 @@ import { cn } from '@/lib/cn'
 import { useMyProfile } from '@/lib/queries'
 
 type NavItem = {
-  to: '/dashboard' | '/deals' | '/profile' | '/settings'
+  to: '/dashboard' | '/deals' | '/invoices' | '/profile' | '/settings'
   label: string
   icon: LucideIcon
+  creatorsOnly?: boolean
 }
 
 const NAV: NavItem[] = [
   { to: '/dashboard', label: 'Home', icon: House },
   { to: '/deals', label: 'Deals', icon: Handshake },
+  { to: '/invoices', label: 'Invoices', icon: ReceiptIndianRupee, creatorsOnly: true },
   { to: '/profile', label: 'Profile', icon: UserRound },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
@@ -47,21 +50,22 @@ export function AppShell() {
   if (!user) return null
 
   const handle = data?.profile?.handle
+  const nav = NAV.filter((n) => !n.creatorsOnly || user.role === 'creator')
   const doSignOut = () => {
     signOut()
     navigate({ to: '/login' })
   }
 
   return (
-    <div className="min-h-dvh bg-surface lg:grid lg:grid-cols-[240px_1fr]">
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-background lg:flex">
+    <div className="min-h-dvh bg-surface lg:grid lg:grid-cols-[240px_1fr] print:block print:bg-white">
+      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-background lg:flex print:hidden">
         <div className="flex h-14 items-center px-5">
           <Link to="/dashboard" aria-label="Brandshake home">
             <Logo />
           </Link>
         </div>
         <nav className="flex flex-col gap-0.5 px-3 py-2" aria-label="Main">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <SidebarLink key={item.to} item={item} />
           ))}
         </nav>
@@ -95,7 +99,7 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-h-dvh flex-col">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-line bg-background px-4 lg:hidden">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-line bg-background px-4 lg:hidden print:hidden">
           <Link to="/dashboard" aria-label="Brandshake home">
             <Logo />
           </Link>
@@ -109,15 +113,16 @@ export function AppShell() {
           </button>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-24 sm:px-6 lg:py-8 lg:pb-8">
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-24 sm:px-6 lg:py-8 lg:pb-8 print:max-w-none print:p-0">
           <Outlet />
         </main>
 
         <nav
           aria-label="Main"
-          className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-line bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-10 grid border-t border-line bg-background pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
+          style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}
         >
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.to}
               to={item.to}

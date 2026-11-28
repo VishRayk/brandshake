@@ -1,15 +1,16 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, ArrowUpRight, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Pencil, ReceiptIndianRupee, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { DealForm, toFormValues } from '@/components/deals/deal-form'
 import { StatusBadge, StatusSelect } from '@/components/deals/deal-status'
 import { MoneyAmount } from '@/components/brandshake/money'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog } from '@/components/ui/controls'
 import { ApiError, dealApi, type Deal, type DealEvent, type DealInput } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { STATUS_HINT, STATUS_LABEL, daysUntil, dueLabel } from '@/lib/deals'
+import { useAuth } from '@/lib/auth'
 import { useDeal, useDealEvents, useDealMutation } from '@/lib/queries'
 import { PLATFORMS, labelOf } from '@/lib/vocab'
 
@@ -136,6 +137,7 @@ function DeleteDeal({ d }: { d: Deal }) {
 }
 
 export function DealDetailPage({ dealId }: { dealId: string }) {
+  const { user } = useAuth()
   const { data: d, isPending, error } = useDeal(dealId)
   const { data: events } = useDealEvents(dealId)
   const [editing, setEditing] = useState(false)
@@ -217,6 +219,15 @@ export function DealDetailPage({ dealId }: { dealId: string }) {
             onChange={(s) => setStatus.mutate(s)}
             disabled={setStatus.isPending}
           />
+          {user?.role === 'creator' && d.status !== 'lost' && (
+            <Link
+              to="/invoices/new"
+              search={{ deal: d.id }}
+              className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+            >
+              <ReceiptIndianRupee aria-hidden /> Create invoice
+            </Link>
+          )}
           <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
             <Pencil aria-hidden /> Edit
           </Button>

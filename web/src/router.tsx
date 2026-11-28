@@ -95,6 +95,62 @@ const dealRoute = createRoute({
   },
 })
 
+const InvoicesPage = lazyRouteComponent(() => import('@/routes/invoices'), 'InvoicesPage')
+const invoicesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/invoices',
+  validateSearch: z.object({
+    status: z.enum(['issued', 'overdue', 'paid', 'void']).optional().catch(undefined),
+  }),
+  component: function Invoices() {
+    const { status } = invoicesRoute.useSearch()
+    return <InvoicesPage status={status ?? ''} />
+  },
+})
+
+const NewInvoicePage = lazyRouteComponent(() => import('@/routes/invoice-new'), 'NewInvoicePage')
+const newInvoiceRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/invoices/new',
+  validateSearch: z.object({ deal: z.string().optional() }),
+  component: function NewInvoice() {
+    const { deal } = newInvoiceRoute.useSearch()
+    return <NewInvoicePage key={deal ?? 'blank'} dealId={deal} />
+  },
+})
+
+const billingRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/invoices/billing',
+  component: lazyRouteComponent(() => import('@/routes/billing'), 'BillingPage'),
+})
+
+const InvoiceDetailPage = lazyRouteComponent(
+  () => import('@/routes/invoice-detail'),
+  'InvoiceDetailPage',
+)
+const invoiceRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/invoices/$invoiceId',
+  component: function InvoiceDetail() {
+    const { invoiceId } = invoiceRoute.useParams()
+    return <InvoiceDetailPage key={invoiceId} invoiceId={invoiceId} />
+  },
+})
+
+const PublicInvoicePage = lazyRouteComponent(
+  () => import('@/routes/public-invoice'),
+  'PublicInvoicePage',
+)
+const publicInvoiceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/i/$token',
+  component: function PublicInvoice() {
+    const { token } = publicInvoiceRoute.useParams()
+    return <PublicInvoicePage token={token} />
+  },
+})
+
 const profileRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/profile',
@@ -129,10 +185,15 @@ const routeTree = rootRoute.addChildren([
     dealsRoute,
     newDealRoute,
     dealRoute,
+    invoicesRoute,
+    newInvoiceRoute,
+    billingRoute,
+    invoiceRoute,
     profileRoute,
     settingsRoute,
   ]),
   publicProfileRoute,
+  publicInvoiceRoute,
 ])
 
 export const router = createRouter({

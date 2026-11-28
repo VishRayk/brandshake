@@ -11,7 +11,7 @@ import type { DealSummary, MyProfile, User } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { dueLabel } from '@/lib/deals'
-import { useDealSummary, useDeals, useMyProfile } from '@/lib/queries'
+import { useDealSummary, useDeals, useInvoiceSummary, useMyProfile } from '@/lib/queries'
 
 function greeting(now = new Date()) {
   const h = now.getHours()
@@ -99,16 +99,46 @@ function Stats({ user, summary }: { user: User; summary: DealSummary | undefined
   const money = (v: number | undefined) => <MoneyAmount amountMinor={v ?? 0} currency="INR" />
   const active = summary?.active_count ?? 0
   const overdue = summary?.overdue_deliverables ?? 0
+  const { data: inv } = useInvoiceSummary(user.role === 'creator')
+  if (user.role === 'creator') {
+    return (
+      <>
+        <StatTile
+          label="Active deals"
+          value={String(active)}
+          hint={
+            overdue > 0
+              ? `${overdue} overdue deliverable${overdue === 1 ? '' : 's'}`
+              : 'Confirmed, creating or posted'
+          }
+        />
+        <StatTile
+          label="Unpaid invoices"
+          value={money(inv?.outstanding_minor)}
+          hint={
+            inv?.overdue_count
+              ? `${inv.overdue_count} overdue · reminders on`
+              : 'Sent and awaiting payment'
+          }
+        />
+        <StatTile
+          label="Paid this month"
+          value={money(inv?.paid_this_month_minor)}
+          hint="Invoices marked paid"
+        />
+      </>
+    )
+  }
   return (
     <>
       <StatTile label="Active deals" value={String(active)} hint="Confirmed, creating or posted" />
       <StatTile
-        label={user.role === 'creator' ? 'Awaiting payment' : 'To pay creators'}
+        label="To pay creators"
         value={money(summary?.awaiting_payment_minor)}
         hint="Posted deals not yet marked paid"
       />
       <StatTile
-        label={user.role === 'creator' ? 'Paid this month' : 'Settled this month'}
+        label="Settled this month"
         value={money(summary?.paid_this_month_minor)}
         hint={
           overdue > 0

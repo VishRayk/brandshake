@@ -49,6 +49,10 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 - Every deal query is scoped to its owner; other users get 404, never a hint that the deal exists
 - "Paste an email" drafting: the Go API calls the AI service, maps the draft onto validated deal fields, and saves nothing until the user confirms
 - Dashboard summary: active deals, payments awaited, paid this month, overdue and upcoming deliverables
+- GST-ready invoices for India: PAN and GSTIN validation (including the check digit), CGST + SGST or IGST by place of supply, paise-exact rounding, and gapless invoice numbers per financial year from a row-locked counter
+- Each invoice stores a snapshot of the seller's details and gets an unguessable no-login link with a `upi://pay` payment link; the brand reports payment, the creator confirms, and the linked deal closes in the same transaction. Brandshake never handles the money
+- Durable background jobs on PostgreSQL (`FOR UPDATE SKIP LOCKED`, exponential backoff, crash recovery, dedupe keys) send invoice emails and reminders: overdue invoices at 1, 7 and 14 days, and deliverables due tomorrow
+- Formula-safe CSV export of invoices per financial year
 - Email sign-up and sign-in for creators and brands with bcrypt hashing and HS256 access tokens
 - Login runs in the same time whether or not the account exists, so emails can't be discovered
 - Strict JSON decoding (size limit, unknown fields rejected) and field-level validation errors in one error envelope
@@ -70,7 +74,9 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 - Public profile pages at `/@handle`: a shareable media kit for creators and a brand page for brands
 - Home with a profile-setup checklist and live deal numbers; settings with data export and account deletion
 - Deals board (a column per stage) and list views with search; new deal from a pasted email or by hand; deal page with a deliverable checklist, terms and activity history
-- Every page is code-split; the main bundle is about 145 KB gzipped
+- Invoices: billing details, invoice builder with a live GST preview (the same maths as the server), status filters, earnings tiles and CSV export
+- Printable invoice with the amount in words (lakh and crore); the brand's invoice page has a scannable UPI QR code and an "I've paid" button
+- Every page is code-split; the main bundle is about 146 KB gzipped
 - Forms validated on the client with Zod, with server errors mapped back onto each field
 
 ## Getting started
@@ -128,6 +134,16 @@ GET    /v1/deals/{id}         · PUT replaces details · DELETE
 PUT    /v1/deals/{id}/status  { status }
 PUT    /v1/deals/{id}/deliverables/{position}   { done }
 GET    /v1/deals/{id}/events  history
+
+GET    /v1/me/billing         · PUT   invoicing details (name, state, PAN, GSTIN, UPI ID, bank)
+GET    /v1/invoices?status=   your invoices (issued, overdue, paid, void)
+POST   /v1/invoices           { deal_id?, buyer_name, buyer_email, buyer_state, buyer_gstin, items, ... }
+GET    /v1/invoices/summary   unpaid, overdue, paid this month and financial year
+GET    /v1/invoices/export.csv?fy=2026-27
+GET    /v1/invoices/{id}      · /events
+POST   /v1/invoices/{id}/send · /paid { paid_on, reference } · /void
+GET    /v1/public/invoices/{token}               no login: the brand's view
+POST   /v1/public/invoices/{token}/claim-paid    { reference }
 
 GET    /healthz · /readyz
 ```
