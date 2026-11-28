@@ -66,13 +66,25 @@ func (r *Repo) ByID(ctx context.Context, id string) (User, error) {
 	return scan(r.db.QueryRow(ctx, `SELECT `+columns+` FROM users WHERE id::text = $1`, id))
 }
 
-// Delete removes the user; profiles and related rows cascade.
+// Delete removes the user and everything tied to them: profiles, deals and
+// invoices cascade; emails sent to their address and unsent queued emails
+// are removed explicitly because they are keyed by address, not user.
 func (r *Repo) Delete(ctx context.Context, id string) error {
-	tag, err := r.db.Exec(ctx, `DELETE FROM users WHERE id::text = $1`, id)
-	if err == nil && tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return err
+	return pgx.BeginFunc(ctx, r.db, func(tx pgx.Tx) error {
+		var email string
+		err := tx.QueryRow(ctx, `DELETE FROM users WHERE id::text = $1 RETURNING email`, id).Scan(&email)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM emails WHERE to_address = $1`, email); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `DELETE FROM jobs WHERE status IN ('pending', 'failed') AND payload->>'to' = $1`, email)
+		return err
+	})
 }
 
 func scan(row pgx.Row) (User, error) {

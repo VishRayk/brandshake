@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -210,9 +211,12 @@ func TestPublicProfileNotFound(t *testing.T) {
 
 func TestExportAndDeleteAccount(t *testing.T) {
 	t.Parallel()
-	srv := newServer(t)
+	srv, db := newServerDB(t)
 	tok := signup(t, srv, "leaving@example.com", "creator")
 	do(t, srv, "PUT", "/v1/me/profile", tok, map[string]any{"handle": "leaving_soon"})
+	// An email addressed to them, already sent, and one still queued.
+	_, _ = db.Exec(context.Background(), `INSERT INTO emails (to_address, subject, body_text, kind, provider) VALUES ('leaving@example.com', 's', 'b', 'test', 'log')`)
+	_, _ = db.Exec(context.Background(), `INSERT INTO jobs (kind, payload) VALUES ('email.send', '{"to": "leaving@example.com"}')`)
 
 	resp, body := do(t, srv, "GET", "/v1/me/export", tok, nil)
 	if resp.StatusCode != 200 || body["account"].(map[string]any)["email"] != "leaving@example.com" || body["profile"] == nil {
@@ -241,5 +245,10 @@ func TestExportAndDeleteAccount(t *testing.T) {
 	}
 	if resp, _ := do(t, srv, "POST", "/v1/auth/login", "", map[string]string{"email": "leaving@example.com", "password": "correct-horse-battery"}); resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("login after delete: %d", resp.StatusCode)
+	}
+	var leftover int
+	_ = db.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM emails WHERE to_address = 'leaving@example.com') + (SELECT count(*) FROM jobs WHERE payload->>'to' = 'leaving@example.com')`).Scan(&leftover)
+	if leftover != 0 {
+		t.Errorf("%d emails/jobs for the deleted address remain", leftover)
 	}
 }
