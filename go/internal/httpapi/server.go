@@ -11,6 +11,7 @@ import (
 	"github.com/VishRayk/brandshake/internal/aiclient"
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/deal"
+	"github.com/VishRayk/brandshake/internal/email"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/user"
 )
@@ -21,6 +22,7 @@ type Deps struct {
 	Profiles       *profile.Repo
 	Deals          *deal.Repo
 	AI             *aiclient.Client // nil disables AI features
+	DevMode        bool             // enables development-only endpoints
 	Tokens         *auth.Tokens
 	AllowedOrigins []string
 }
@@ -63,6 +65,11 @@ func NewHandler(d Deps) http.Handler {
 
 	mux.HandleFunc("GET /v1/profiles/{handle}", a.publicProfile)
 
+	if d.DevMode {
+		// Emails the log provider "sent" to you; lets you click links in development.
+		authed("GET /v1/dev/outbox", a.devOutbox)
+	}
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Route not found.")
 	})
@@ -88,4 +95,18 @@ func (a *api) ready(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+}
+
+func (a *api) devOutbox(w http.ResponseWriter, r *http.Request) {
+	u, err := a.Users.ByID(r.Context(), principal(r).UserID)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "Sign in to continue.")
+		return
+	}
+	emails, err := email.Recent(r.Context(), a.DB, u.Email, 50)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"emails": emails})
 }

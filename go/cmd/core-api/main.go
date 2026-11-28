@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -15,7 +16,9 @@ import (
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/config"
 	"github.com/VishRayk/brandshake/internal/deal"
+	"github.com/VishRayk/brandshake/internal/email"
 	"github.com/VishRayk/brandshake/internal/httpapi"
+	"github.com/VishRayk/brandshake/internal/jobs"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/store"
 	"github.com/VishRayk/brandshake/internal/user"
@@ -53,6 +56,21 @@ func run() error {
 		return err
 	}
 
+	// Background jobs run in this process until there is a reason to split them out.
+	runner := jobs.NewRunner(db)
+	runner.Workers = cfg.Workers
+	runner.Handle(email.JobKind, email.Handler(db, email.LogSender{}))
+	workerCtx, stopWorkers := context.WithCancel(context.Background())
+	var workersDone sync.WaitGroup
+	if cfg.Workers > 0 {
+		workersDone.Go(func() { runner.Run(workerCtx) })
+		slog.Info("job workers started", "workers", cfg.Workers, "email", cfg.EmailProvider)
+	}
+	defer func() {
+		stopWorkers()
+		workersDone.Wait()
+	}()
+
 	srv := &http.Server{
 		Addr: cfg.Addr,
 		Handler: httpapi.NewHandler(httpapi.Deps{
@@ -63,6 +81,7 @@ func run() error {
 			AI:             aiclient.New(cfg.AIServiceURL, 45*time.Second),
 			Tokens:         auth.NewTokens(cfg.JWTSecret, cfg.AccessTokenTTL),
 			AllowedOrigins: cfg.AllowedOrigins,
+			DevMode:        cfg.IsDev(),
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
