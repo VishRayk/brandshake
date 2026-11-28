@@ -11,6 +11,7 @@ import (
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/deal"
 	"github.com/VishRayk/brandshake/internal/httpapi"
+	"github.com/VishRayk/brandshake/internal/invoice"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/testdb"
 	"github.com/VishRayk/brandshake/internal/user"
@@ -29,6 +30,7 @@ func newServerWith(t *testing.T, configure func(*httpapi.Deps)) *httptest.Server
 		Users:    user.NewRepo(db),
 		Profiles: profile.NewRepo(db),
 		Deals:    deal.NewRepo(db),
+		Invoices: invoice.NewRepo(db, "https://brandshake.test"),
 		Tokens:   auth.NewTokens([]byte("test-secret-test-secret-test-secret"), time.Hour),
 	}
 	if configure != nil {

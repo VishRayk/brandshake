@@ -12,6 +12,7 @@ import (
 	"github.com/VishRayk/brandshake/internal/auth"
 	"github.com/VishRayk/brandshake/internal/deal"
 	"github.com/VishRayk/brandshake/internal/email"
+	"github.com/VishRayk/brandshake/internal/invoice"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/user"
 )
@@ -21,6 +22,7 @@ type Deps struct {
 	Users          *user.Repo
 	Profiles       *profile.Repo
 	Deals          *deal.Repo
+	Invoices       *invoice.Repo
 	AI             *aiclient.Client // nil disables AI features
 	DevMode        bool             // enables development-only endpoints
 	Tokens         *auth.Tokens
@@ -62,6 +64,20 @@ func NewHandler(d Deps) http.Handler {
 	authed("PUT /v1/deals/{id}/status", a.setDealStatus)
 	authed("PUT /v1/deals/{id}/deliverables/{position}", a.setDeliverableDone)
 	authed("GET /v1/deals/{id}/events", a.dealEvents)
+
+	authed("GET /v1/me/billing", a.getBilling)
+	authed("PUT /v1/me/billing", a.putBilling)
+	authed("GET /v1/invoices", a.listInvoices)
+	authed("POST /v1/invoices", a.createInvoice)
+	authed("GET /v1/invoices/summary", a.invoiceSummary)
+	authed("GET /v1/invoices/export.csv", a.exportInvoicesCSV)
+	authed("GET /v1/invoices/{id}", a.getInvoice)
+	authed("GET /v1/invoices/{id}/events", a.invoiceEvents)
+	authed("POST /v1/invoices/{id}/send", a.sendInvoice)
+	authed("POST /v1/invoices/{id}/paid", a.markInvoicePaid)
+	authed("POST /v1/invoices/{id}/void", a.voidInvoice)
+	mux.HandleFunc("GET /v1/public/invoices/{token}", a.publicInvoice)
+	mux.HandleFunc("POST /v1/public/invoices/{token}/claim-paid", a.claimInvoicePaid)
 
 	mux.HandleFunc("GET /v1/profiles/{handle}", a.publicProfile)
 

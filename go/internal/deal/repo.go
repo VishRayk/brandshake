@@ -475,3 +475,21 @@ func (r *Repo) Summary(ctx context.Context, ownerID string, today time.Time) (Su
 func escapeLike(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }
+
+// MarkPaidTx moves a deal to "paid" inside the caller's transaction (used
+// when its invoice is paid). Deals already paid or lost are left alone.
+func MarkPaidTx(ctx context.Context, tx pgx.Tx, ownerID, dealID string) error {
+	var from Status
+	err := tx.QueryRow(ctx, `SELECT status FROM deals WHERE id::text = $1 AND owner_id = $2 FOR UPDATE`, dealID, ownerID).Scan(&from)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // deal was deleted; nothing to sync
+	}
+	if err != nil || from == StatusPaid || from == StatusLost {
+		return err
+	}
+	to := StatusPaid
+	if _, err := tx.Exec(ctx, `UPDATE deals SET status = 'paid', status_changed_at = now(), updated_at = now() WHERE id::text = $1`, dealID); err != nil {
+		return err
+	}
+	return addEvent(ctx, tx, dealID, ownerID, "status_changed", &from, &to, "invoice paid")
+}

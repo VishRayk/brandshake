@@ -18,6 +18,7 @@ import (
 	"github.com/VishRayk/brandshake/internal/deal"
 	"github.com/VishRayk/brandshake/internal/email"
 	"github.com/VishRayk/brandshake/internal/httpapi"
+	"github.com/VishRayk/brandshake/internal/invoice"
 	"github.com/VishRayk/brandshake/internal/jobs"
 	"github.com/VishRayk/brandshake/internal/profile"
 	"github.com/VishRayk/brandshake/internal/store"
@@ -78,6 +79,7 @@ func run() error {
 			Users:          user.NewRepo(db),
 			Profiles:       profile.NewRepo(db),
 			Deals:          deal.NewRepo(db),
+			Invoices:       invoice.NewRepo(db, cfg.PublicURL),
 			AI:             aiclient.New(cfg.AIServiceURL, 45*time.Second),
 			Tokens:         auth.NewTokens(cfg.JWTSecret, cfg.AccessTokenTTL),
 			AllowedOrigins: cfg.AllowedOrigins,
