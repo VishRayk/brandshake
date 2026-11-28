@@ -293,3 +293,153 @@ export const dealApi = {
       body: JSON.stringify({ text }),
     }),
 }
+
+/* ---------- Invoices ---------- */
+
+export interface Billing {
+  legal_name: string
+  address: string
+  state: string
+  pan: string
+  gst_registered: boolean
+  gstin: string
+  gst_rate: number
+  upi_id: string
+  bank_account_name: string
+  bank_account_number: string
+  bank_ifsc: string
+  bank_name: string
+  invoice_prefix: string
+  payment_terms_days: number
+  updated_at?: string
+}
+
+export interface InvoiceItem {
+  description: string
+  sac_code: string
+  quantity: number
+  unit_price_minor: number
+  amount_minor: number
+}
+
+export type InvoiceStatus = 'issued' | 'paid' | 'void'
+
+export interface Invoice {
+  id: string
+  number: string
+  fy: string
+  status: InvoiceStatus
+  overdue: boolean
+  issue_date: string
+  due_date: string
+  seller: {
+    legal_name: string
+    address: string
+    state: string
+    pan: string
+    gstin: string
+    upi_id: string
+    bank_account_name: string
+    bank_account_number: string
+    bank_ifsc: string
+    bank_name: string
+  }
+  buyer_name: string
+  buyer_email: string
+  buyer_address: string
+  buyer_state: string
+  buyer_gstin: string
+  gst_mode: 'none' | 'intra' | 'inter'
+  gst_rate: number
+  items: InvoiceItem[]
+  subtotal_minor: number
+  cgst_minor: number
+  sgst_minor: number
+  igst_minor: number
+  total_minor: number
+  notes: string
+  deal_id?: string | null
+  public_url?: string
+  upi_uri?: string
+  sent_at: string | null
+  payer_claimed_paid_at: string | null
+  payer_reference: string
+  paid_at: string | null
+  paid_reference: string
+  voided_at: string | null
+  reminders_sent: number
+  created_at: string
+}
+
+export interface InvoiceInput {
+  deal_id: string
+  buyer_name: string
+  buyer_email: string
+  buyer_address: string
+  buyer_state: string
+  buyer_gstin: string
+  issue_date: string
+  due_date: string
+  items: { description: string; sac_code: string; quantity: number; unit_price_minor: number }[]
+  notes: string
+}
+
+export interface InvoiceSummary {
+  outstanding_minor: number
+  outstanding_count: number
+  overdue_minor: number
+  overdue_count: number
+  paid_this_month_minor: number
+  paid_this_fy_minor: number
+  fy: string
+  claimed_paid_count: number
+}
+
+export interface InvoiceEvent {
+  id: number
+  kind: 'issued' | 'sent' | 'viewed' | 'payer_claimed_paid' | 'paid' | 'voided' | 'reminder_sent'
+  detail: string
+  created_at: string
+}
+
+export type InvoiceFilter = '' | 'issued' | 'overdue' | 'paid' | 'void'
+
+export const billingApi = {
+  get: () => request<{ billing: Billing | null }>('/v1/me/billing'),
+  save: (b: Billing) => put<{ billing: Billing }>('/v1/me/billing', b),
+}
+
+const post = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
+
+export const invoiceApi = {
+  list: (status: InvoiceFilter = '') =>
+    request<{ invoices: Invoice[] }>(`/v1/invoices${status ? `?status=${status}` : ''}`),
+  get: (id: string) => request<{ invoice: Invoice }>(`/v1/invoices/${encodeURIComponent(id)}`),
+  create: (i: InvoiceInput) => post<{ invoice: Invoice }>('/v1/invoices', i),
+  summary: () => request<{ summary: InvoiceSummary }>('/v1/invoices/summary'),
+  events: (id: string) =>
+    request<{ events: InvoiceEvent[] }>(`/v1/invoices/${encodeURIComponent(id)}/events`),
+  send: (id: string) => post<{ invoice: Invoice }>(`/v1/invoices/${encodeURIComponent(id)}/send`),
+  markPaid: (id: string, body: { paid_on: string; reference: string }) =>
+    post<{ invoice: Invoice }>(`/v1/invoices/${encodeURIComponent(id)}/paid`, body),
+  void: (id: string) => post<{ invoice: Invoice }>(`/v1/invoices/${encodeURIComponent(id)}/void`),
+  exportCsv: async (fy: string) => {
+    const headers = new Headers()
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+    const res = await fetch(`${BASE_URL}/v1/invoices/export.csv?fy=${encodeURIComponent(fy)}`, {
+      headers,
+    })
+    if (!res.ok) throw await parseError(res)
+    return res.blob()
+  },
+}
+
+export const publicInvoiceApi = {
+  get: (token: string) =>
+    request<{ invoice: Invoice }>(`/v1/public/invoices/${encodeURIComponent(token)}`),
+  claimPaid: (token: string, reference: string) =>
+    post<{ invoice: Invoice }>(`/v1/public/invoices/${encodeURIComponent(token)}/claim-paid`, {
+      reference,
+    }),
+}

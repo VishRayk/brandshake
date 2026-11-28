@@ -129,3 +129,17 @@
     animation-duration: 0ms !important;
   }
 }
+
+/* Print / Save as PDF: only the invoice document, on white. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: #fff !important;
+    color: #1c1917 !important;
+  }
+  .invoice-doc {
+    box-shadow: none !important;
+  }
+}

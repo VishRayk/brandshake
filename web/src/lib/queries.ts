@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { dealApi, profileApi, type DealStatus, type MyProfile } from './api'
+import {
+  billingApi,
+  dealApi,
+  invoiceApi,
+  profileApi,
+  type DealStatus,
+  type InvoiceFilter,
+  type MyProfile,
+} from './api'
 
 export const keys = {
   myProfile: ['me', 'profile'] as const,
@@ -69,6 +77,69 @@ export function useProfileMutation<TInput, TResult>(
         apply(prev ?? { profile: null, socials: [], rates: [], samples: [] }, result),
       )
       qc.invalidateQueries({ queryKey: ['profiles'] })
+    },
+  })
+}
+
+export const invoiceKeys = {
+  all: ['invoices'] as const,
+  list: (f: InvoiceFilter) => ['invoices', 'list', f] as const,
+  detail: (id: string) => ['invoices', 'detail', id] as const,
+  events: (id: string) => ['invoices', 'events', id] as const,
+  summary: ['invoices', 'summary'] as const,
+  billing: ['billing'] as const,
+}
+
+export function useBilling(enabled = true) {
+  return useQuery({
+    queryKey: invoiceKeys.billing,
+    queryFn: billingApi.get,
+    select: (r) => r.billing,
+    enabled,
+  })
+}
+
+export function useInvoices(f: InvoiceFilter = '') {
+  return useQuery({
+    queryKey: invoiceKeys.list(f),
+    queryFn: () => invoiceApi.list(f),
+    select: (r) => r.invoices,
+  })
+}
+
+export function useInvoice(id: string) {
+  return useQuery({
+    queryKey: invoiceKeys.detail(id),
+    queryFn: () => invoiceApi.get(id),
+    select: (r) => r.invoice,
+  })
+}
+
+export function useInvoiceEvents(id: string) {
+  return useQuery({
+    queryKey: invoiceKeys.events(id),
+    queryFn: () => invoiceApi.events(id),
+    select: (r) => r.events,
+  })
+}
+
+export function useInvoiceSummary(enabled = true) {
+  return useQuery({
+    queryKey: invoiceKeys.summary,
+    queryFn: invoiceApi.summary,
+    select: (r) => r.summary,
+    enabled,
+  })
+}
+
+/** Invoice writes can change deals too (paying an invoice closes its deal). */
+export function useInvoiceMutation<TInput, TResult>(fn: (input: TInput) => Promise<TResult>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.all })
+      qc.invalidateQueries({ queryKey: keys.deals })
     },
   })
 }
