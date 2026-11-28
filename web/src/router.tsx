@@ -2,19 +2,13 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   Outlet,
   redirect,
 } from '@tanstack/react-router'
 import { z } from 'zod'
 import type { AuthState } from '@/lib/auth'
 import { AppShell } from '@/components/shell/app-shell'
-import { DashboardPage } from '@/routes/dashboard'
-import { LandingPage } from '@/routes/landing'
-import { LoginPage } from '@/routes/login'
-import { ProfileEditPage } from '@/routes/profile-edit'
-import { PublicProfilePage } from '@/routes/public-profile'
-import { SettingsPage } from '@/routes/settings'
-import { SignupPage } from '@/routes/signup'
 
 interface RouterContext {
   auth: AuthState
@@ -32,16 +26,17 @@ const landingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   beforeLoad: redirectIfSignedIn,
-  component: LandingPage,
+  component: lazyRouteComponent(() => import('@/routes/landing'), 'LandingPage'),
 })
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   beforeLoad: redirectIfSignedIn,
-  component: LoginPage,
+  component: lazyRouteComponent(() => import('@/routes/login'), 'LoginPage'),
 })
 
+const SignupPage = lazyRouteComponent(() => import('@/routes/signup'), 'SignupPage')
 const signupRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/signup',
@@ -63,24 +58,59 @@ const appRoute = createRoute({
   component: AppShell,
 })
 
+// Pages behind sign-in are code-split so the landing page stays small.
 const dashboardRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/dashboard',
-  component: DashboardPage,
+  component: lazyRouteComponent(() => import('@/routes/dashboard'), 'DashboardPage'),
+})
+
+const DealsPage = lazyRouteComponent(() => import('@/routes/deals'), 'DealsPage')
+const dealsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/deals',
+  validateSearch: z.object({
+    view: z.enum(['board', 'list']).catch('board').default('board'),
+    q: z.string().optional(),
+  }),
+  component: function Deals() {
+    const { view, q } = dealsRoute.useSearch()
+    return <DealsPage view={view} q={q ?? ''} />
+  },
+})
+
+const newDealRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/deals/new',
+  component: lazyRouteComponent(() => import('@/routes/deal-new'), 'NewDealPage'),
+})
+
+const DealDetailPage = lazyRouteComponent(() => import('@/routes/deal-detail'), 'DealDetailPage')
+const dealRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/deals/$dealId',
+  component: function DealDetail() {
+    const { dealId } = dealRoute.useParams()
+    return <DealDetailPage key={dealId} dealId={dealId} />
+  },
 })
 
 const profileRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/profile',
-  component: ProfileEditPage,
+  component: lazyRouteComponent(() => import('@/routes/profile-edit'), 'ProfileEditPage'),
 })
 
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings',
-  component: SettingsPage,
+  component: lazyRouteComponent(() => import('@/routes/settings'), 'SettingsPage'),
 })
 
+const PublicProfilePage = lazyRouteComponent(
+  () => import('@/routes/public-profile'),
+  'PublicProfilePage',
+)
 const publicProfileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/@{$handle}',
@@ -94,7 +124,14 @@ const routeTree = rootRoute.addChildren([
   landingRoute,
   loginRoute,
   signupRoute,
-  appRoute.addChildren([dashboardRoute, profileRoute, settingsRoute]),
+  appRoute.addChildren([
+    dashboardRoute,
+    dealsRoute,
+    newDealRoute,
+    dealRoute,
+    profileRoute,
+    settingsRoute,
+  ]),
   publicProfileRoute,
 ])
 

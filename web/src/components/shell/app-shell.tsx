@@ -1,15 +1,28 @@
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
-import { ExternalLink, House, LogOut, Settings, UserRound, type LucideIcon } from 'lucide-react'
+import {
+  ExternalLink,
+  Handshake,
+  House,
+  LogOut,
+  Settings,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react'
 import { Avatar } from '@/components/brandshake/avatar'
 import { Logo } from '@/components/brandshake/logo'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
 import { useMyProfile } from '@/lib/queries'
 
-type NavItem = { to: '/dashboard' | '/profile' | '/settings'; label: string; icon: LucideIcon }
+type NavItem = {
+  to: '/dashboard' | '/deals' | '/profile' | '/settings'
+  label: string
+  icon: LucideIcon
+}
 
 const NAV: NavItem[] = [
   { to: '/dashboard', label: 'Home', icon: House },
+  { to: '/deals', label: 'Deals', icon: Handshake },
   { to: '/profile', label: 'Profile', icon: UserRound },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
@@ -102,7 +115,7 @@ export function AppShell() {
 
         <nav
           aria-label="Main"
-          className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-3 border-t border-line bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-line bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
         >
           {NAV.map((item) => (
             <Link

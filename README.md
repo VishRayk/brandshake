@@ -45,6 +45,10 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 **Core API (Go)**
 - Public creator and brand profiles: unique handles with reserved words blocked, niches, languages, social accounts (links checked against each platform's domain), rate cards in paise, and work samples
 - Account data export and permanent deletion, in line with India's DPDP Act
+- Deal tracker: deals with brands or creators on or off Brandshake, deliverables with due dates, fee in paise, revisions, usage rights and exclusivity, a status pipeline, and an append-only history written in the same transaction as each change
+- Every deal query is scoped to its owner; other users get 404, never a hint that the deal exists
+- "Paste an email" drafting: the Go API calls the AI service, maps the draft onto validated deal fields, and saves nothing until the user confirms
+- Dashboard summary: active deals, payments awaited, paid this month, overdue and upcoming deliverables
 - Email sign-up and sign-in for creators and brands with bcrypt hashing and HS256 access tokens
 - Login runs in the same time whether or not the account exists, so emails can't be discovered
 - Strict JSON decoding (size limit, unknown fields rejected) and field-level validation errors in one error envelope
@@ -64,7 +68,9 @@ Creator–brand partnerships still run on Instagram DMs, WhatsApp threads and sp
 - Responsive app shell: sidebar on desktop, bottom tabs on mobile
 - Profile editor with live handle availability, niche and language pickers, and editable social accounts, rate card (₹, stored in paise) and work samples
 - Public profile pages at `/@handle`: a shareable media kit for creators and a brand page for brands
-- Home with a profile-setup checklist driven by real data; settings with data export and account deletion
+- Home with a profile-setup checklist and live deal numbers; settings with data export and account deletion
+- Deals board (a column per stage) and list views with search; new deal from a pasted email or by hand; deal page with a deliverable checklist, terms and activity history
+- Every page is code-split; the main bundle is about 145 KB gzipped
 - Forms validated on the client with Zod, with server errors mapped back onto each field
 
 ## Getting started
@@ -114,6 +120,15 @@ PUT    /v1/me/samples         { samples: [{ title, url, brand_name }] }         
 GET    /v1/handles/{handle}   is a handle available?
 GET    /v1/profiles/{handle}  public profile (no auth)
 
+GET    /v1/deals?status=&q=   your deals, with deliverables
+POST   /v1/deals              { title, counterparty_name | counterparty_handle, amount_minor, deliverables, ... }
+POST   /v1/deals/draft        { text }   draft a deal from a pasted email or chat (nothing saved)
+GET    /v1/deals/summary      dashboard numbers
+GET    /v1/deals/{id}         · PUT replaces details · DELETE
+PUT    /v1/deals/{id}/status  { status }
+PUT    /v1/deals/{id}/deliverables/{position}   { done }
+GET    /v1/deals/{id}/events  history
+
 GET    /healthz · /readyz
 ```
 
@@ -121,6 +136,7 @@ AI service:
 
 ```http
 POST /v1/terms/extract   { messages: [{ author: "brand" | "creator", text }] }
+POST /v1/deals/draft     { text, owner_role }
 GET  /v1/metrics
 ```
 

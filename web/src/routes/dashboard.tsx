@@ -1,15 +1,17 @@
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, Check, Handshake } from 'lucide-react'
+import { ArrowRight, Check, Handshake, Plus } from 'lucide-react'
+import { StatusBadge } from '@/components/deals/deal-status'
 import { EmptyState } from '@/components/brandshake/empty-state'
 import { MoneyAmount } from '@/components/brandshake/money'
 import { PageHeader } from '@/components/brandshake/page-header'
 import { StatTile } from '@/components/brandshake/stat-tile'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import type { MyProfile, User } from '@/lib/api'
+import type { DealSummary, MyProfile, User } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/cn'
-import { useMyProfile } from '@/lib/queries'
+import { dueLabel } from '@/lib/deals'
+import { useDealSummary, useDeals, useMyProfile } from '@/lib/queries'
 
 function greeting(now = new Date()) {
   const h = now.getHours()
@@ -93,29 +95,127 @@ function SetupCard({ user, data }: { user: User; data: MyProfile | undefined }) 
   )
 }
 
-function Stats({ user }: { user: User }) {
-  const zero = <MoneyAmount amountMinor={0} currency="INR" />
-  if (user.role === 'creator') {
-    return (
-      <>
-        <StatTile label="Unpaid invoices" value={zero} hint="Sent and awaiting payment" />
-        <StatTile label="Paid this month" value={zero} />
-        <StatTile label="Active deals" value="0" />
-      </>
-    )
-  }
+function Stats({ user, summary }: { user: User; summary: DealSummary | undefined }) {
+  const money = (v: number | undefined) => <MoneyAmount amountMinor={v ?? 0} currency="INR" />
+  const active = summary?.active_count ?? 0
+  const overdue = summary?.overdue_deliverables ?? 0
   return (
     <>
-      <StatTile label="Active deals" value="0" />
-      <StatTile label="Invoices to pay" value={zero} hint="Received from creators" />
-      <StatTile label="Creators in your roster" value="0" />
+      <StatTile label="Active deals" value={String(active)} hint="Confirmed, creating or posted" />
+      <StatTile
+        label={user.role === 'creator' ? 'Awaiting payment' : 'To pay creators'}
+        value={money(summary?.awaiting_payment_minor)}
+        hint="Posted deals not yet marked paid"
+      />
+      <StatTile
+        label={user.role === 'creator' ? 'Paid this month' : 'Settled this month'}
+        value={money(summary?.paid_this_month_minor)}
+        hint={
+          overdue > 0
+            ? `${overdue} overdue deliverable${overdue === 1 ? '' : 's'}`
+            : 'Deals marked paid'
+        }
+      />
     </>
+  )
+}
+
+function ComingUp({ summary }: { summary: DealSummary }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Coming up</CardTitle>
+        <span className="text-xs text-subtle">Next 14 days</span>
+      </CardHeader>
+      {summary.due_soon.length === 0 ? (
+        <p className="px-5 py-4 text-[13px] text-muted">Nothing due in the next two weeks.</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {summary.due_soon.map((it) => (
+            <li key={`${it.deal_id}-${it.title}`}>
+              <Link
+                to="/deals/$dealId"
+                params={{ dealId: it.deal_id }}
+                className="flex items-center justify-between gap-4 px-5 py-3 transition-colors duration-150 hover:bg-surface"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-medium text-fg">{it.title}</span>
+                  <span className="block truncate text-xs text-subtle">
+                    {it.deal_title} · {it.counterparty_name}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    'shrink-0 text-xs',
+                    it.overdue ? 'font-medium text-danger' : 'text-muted',
+                  )}
+                >
+                  {dueLabel(it.due_date)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+function RecentDeals({ user }: { user: User }) {
+  const { data: deals } = useDeals()
+  const recent = (deals ?? []).slice(0, 5)
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent deals</CardTitle>
+        {recent.length > 0 && (
+          <Link to="/deals" className="text-xs font-medium text-muted hover:text-fg">
+            View all
+          </Link>
+        )}
+      </CardHeader>
+      {deals && recent.length === 0 ? (
+        <EmptyState
+          icon={Handshake}
+          title="No deals yet"
+          description={
+            user.role === 'creator'
+              ? 'Paste a brand email or chat and Brandshake drafts the deal for you.'
+              : 'Track each creator collaboration, from offer to payment.'
+          }
+          action={
+            <Link to="/deals/new" className={buttonVariants({ size: 'sm' })}>
+              <Plus aria-hidden /> New deal
+            </Link>
+          }
+        />
+      ) : (
+        <ul className="divide-y divide-line">
+          {recent.map((d) => (
+            <li key={d.id}>
+              <Link
+                to="/deals/$dealId"
+                params={{ dealId: d.id }}
+                className="flex items-center justify-between gap-4 px-5 py-3 transition-colors duration-150 hover:bg-surface"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-medium text-fg">{d.title}</span>
+                  <span className="block truncate text-xs text-subtle">{d.counterparty.name}</span>
+                </span>
+                <StatusBadge status={d.status} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }
 
 export function DashboardPage() {
   const { user } = useAuth()
   const { data } = useMyProfile()
+  const { data: summary } = useDealSummary()
   if (!user) return null
 
   return (
@@ -132,23 +232,13 @@ export function DashboardPage() {
       <SetupCard user={user} data={data} />
 
       <section className="grid gap-4 sm:grid-cols-3" aria-label="Summary">
-        <Stats user={user} />
+        <Stats user={user} summary={summary} />
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Deals</CardTitle>
-        </CardHeader>
-        <EmptyState
-          icon={Handshake}
-          title="No deals yet"
-          description={
-            user.role === 'creator'
-              ? 'Deals you make with brands show up here, from first message to final payment.'
-              : 'Deals you make with creators show up here, with deliverables and invoice status.'
-          }
-        />
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <RecentDeals user={user} />
+        {summary && <ComingUp summary={summary} />}
+      </div>
     </div>
   )
 }
