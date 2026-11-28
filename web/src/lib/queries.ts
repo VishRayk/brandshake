@@ -1,9 +1,55 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { profileApi, type MyProfile } from './api'
+import { dealApi, profileApi, type DealStatus, type MyProfile } from './api'
 
 export const keys = {
   myProfile: ['me', 'profile'] as const,
   publicProfile: (handle: string) => ['profiles', handle] as const,
+  deals: ['deals'] as const,
+  dealList: (f: { status?: DealStatus; q?: string }) => ['deals', 'list', f] as const,
+  deal: (id: string) => ['deals', 'detail', id] as const,
+  dealEvents: (id: string) => ['deals', 'events', id] as const,
+  dealSummary: ['deals', 'summary'] as const,
+}
+
+export function useDeals(f: { status?: DealStatus; q?: string } = {}) {
+  return useQuery({
+    queryKey: keys.dealList(f),
+    queryFn: () => dealApi.list(f),
+    select: (r) => r.deals,
+  })
+}
+
+export function useDeal(id: string) {
+  return useQuery({
+    queryKey: keys.deal(id),
+    queryFn: () => dealApi.get(id),
+    select: (r) => r.deal,
+  })
+}
+
+export function useDealEvents(id: string) {
+  return useQuery({
+    queryKey: keys.dealEvents(id),
+    queryFn: () => dealApi.events(id),
+    select: (r) => r.events,
+  })
+}
+
+export function useDealSummary() {
+  return useQuery({
+    queryKey: keys.dealSummary,
+    queryFn: dealApi.summary,
+    select: (r) => r.summary,
+  })
+}
+
+/** Any deal write invalidates every deal query (lists, summary, events). */
+export function useDealMutation<TInput, TResult>(fn: (input: TInput) => Promise<TResult>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.deals }),
+  })
 }
 
 export function useMyProfile() {

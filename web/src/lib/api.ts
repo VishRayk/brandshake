@@ -149,14 +149,147 @@ export const profileApi = {
 
 export const accountApi = {
   export: () => request<Record<string, unknown>>('/v1/me/export'),
-  delete: async (password: string) => {
-    const headers = new Headers({ 'Content-Type': 'application/json' })
-    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
-    const res = await fetch(`${BASE_URL}/v1/me`, {
+  delete: (password: string) =>
+    requestNoContent('/v1/me', {
       method: 'DELETE',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
-    })
-    if (!res.ok) throw await parseError(res)
+    }),
+}
+
+/* ---------- Deals ---------- */
+
+export type DealStatus =
+  'lead' | 'negotiating' | 'confirmed' | 'in_progress' | 'posted' | 'paid' | 'lost'
+
+export interface DealDeliverable {
+  title: string
+  platform: string
+  due_date: string | null
+  done: boolean
+  done_at: string | null
+}
+
+export interface Deal {
+  id: string
+  title: string
+  status: DealStatus
+  counterparty: {
+    name: string
+    email: string
+    user: { handle: string; display_name: string; role: Role } | null
+  }
+  amount_minor: number | null
+  currency: 'INR'
+  revisions: number | null
+  usage_rights_days: number | null
+  usage_perpetual: boolean
+  exclusivity_days: number | null
+  notes: string
+  source: 'manual' | 'ai_draft'
+  deliverables: DealDeliverable[]
+  created_at: string
+  updated_at: string
+  status_changed_at: string
+}
+
+export interface DealInput {
+  title: string
+  status?: DealStatus
+  counterparty_name: string
+  counterparty_email: string
+  counterparty_handle: string
+  amount_minor: number | null
+  revisions: number | null
+  usage_rights_days: number | null
+  usage_perpetual: boolean
+  exclusivity_days: number | null
+  notes: string
+  source?: 'manual' | 'ai_draft'
+  deliverables: { title: string; platform: string; due_date: string; done: boolean }[]
+}
+
+export interface DealEvent {
+  id: number
+  kind: 'created' | 'updated' | 'status_changed' | 'deliverable_done' | 'deliverable_reopened'
+  from_status: DealStatus | null
+  to_status: DealStatus | null
+  detail: string
+  created_at: string
+}
+
+export interface DealSummary {
+  counts: Record<DealStatus, number>
+  active_count: number
+  active_value_minor: number
+  awaiting_payment_minor: number
+  paid_this_month_minor: number
+  overdue_deliverables: number
+  due_soon: {
+    deal_id: string
+    deal_title: string
+    counterparty_name: string
+    title: string
+    platform: string
+    due_date: string
+    overdue: boolean
+  }[]
+}
+
+export interface RiskFlag {
+  severity: 'low' | 'medium' | 'high'
+  term: string
+  message: string
+}
+
+export interface DealDraftResponse {
+  suggestion: DealInput & { status: DealStatus; source: 'ai_draft' }
+  summary: string
+  open_questions: string[]
+  risk_flags: RiskFlag[]
+}
+
+async function requestNoContent(path: string, init: RequestInit) {
+  const headers = new Headers(init.headers)
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
+  } catch {
+    throw new ApiError(
+      0,
+      'network',
+      'Could not reach Brandshake. Check your connection and try again.',
+    )
+  }
+  if (!res.ok) throw await parseError(res)
+}
+
+export const dealApi = {
+  list: (f: { status?: DealStatus; q?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (f.status) qs.set('status', f.status)
+    if (f.q) qs.set('q', f.q)
+    const s = qs.toString()
+    return request<{ deals: Deal[] }>(`/v1/deals${s ? `?${s}` : ''}`)
   },
+  get: (id: string) => request<{ deal: Deal }>(`/v1/deals/${encodeURIComponent(id)}`),
+  create: (d: DealInput) =>
+    request<{ deal: Deal }>('/v1/deals', { method: 'POST', body: JSON.stringify(d) }),
+  update: (id: string, d: DealInput) =>
+    put<{ deal: Deal }>(`/v1/deals/${encodeURIComponent(id)}`, d),
+  setStatus: (id: string, status: DealStatus) =>
+    put<{ deal: Deal }>(`/v1/deals/${encodeURIComponent(id)}/status`, { status }),
+  setDone: (id: string, position: number, done: boolean) =>
+    put<{ deal: Deal }>(`/v1/deals/${encodeURIComponent(id)}/deliverables/${position}`, { done }),
+  remove: (id: string) =>
+    requestNoContent(`/v1/deals/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  events: (id: string) =>
+    request<{ events: DealEvent[] }>(`/v1/deals/${encodeURIComponent(id)}/events`),
+  summary: () => request<{ summary: DealSummary }>('/v1/deals/summary'),
+  draft: (text: string) =>
+    request<DealDraftResponse>('/v1/deals/draft', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
 }
