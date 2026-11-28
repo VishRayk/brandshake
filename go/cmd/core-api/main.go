@@ -21,6 +21,7 @@ import (
 	"github.com/VishRayk/brandshake/internal/invoice"
 	"github.com/VishRayk/brandshake/internal/jobs"
 	"github.com/VishRayk/brandshake/internal/profile"
+	"github.com/VishRayk/brandshake/internal/reminders"
 	"github.com/VishRayk/brandshake/internal/store"
 	"github.com/VishRayk/brandshake/internal/user"
 )
@@ -67,6 +68,11 @@ func run() error {
 		workersDone.Go(func() { runner.Run(workerCtx) })
 		slog.Info("job workers started", "workers", cfg.Workers, "email", cfg.EmailProvider)
 	}
+	invoices := invoice.NewRepo(db, cfg.PublicURL)
+	if cfg.Workers > 0 {
+		sched := &reminders.Scheduler{DB: db, Invoices: invoices, PublicURL: cfg.PublicURL, Every: 15 * time.Minute}
+		workersDone.Go(func() { sched.Run(workerCtx) })
+	}
 	defer func() {
 		stopWorkers()
 		workersDone.Wait()
@@ -79,7 +85,7 @@ func run() error {
 			Users:          user.NewRepo(db),
 			Profiles:       profile.NewRepo(db),
 			Deals:          deal.NewRepo(db),
-			Invoices:       invoice.NewRepo(db, cfg.PublicURL),
+			Invoices:       invoices,
 			AI:             aiclient.New(cfg.AIServiceURL, 45*time.Second),
 			Tokens:         auth.NewTokens(cfg.JWTSecret, cfg.AccessTokenTTL),
 			AllowedOrigins: cfg.AllowedOrigins,
